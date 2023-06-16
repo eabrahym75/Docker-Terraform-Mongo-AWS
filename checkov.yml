@@ -1,0 +1,46 @@
+# To run this buildspec.yml in AWS CodePipeline, you can follow these steps:
+
+# Create a new AWS CodeBuild project and set the source to your GitHub repository.
+# In the "Environment" section of the CodeBuild project, set the appropriate environment variables and runtime versions (Python 3.8 in this case).
+# In the "Buildspec" section of the CodeBuild project, choose "Use a buildspec file" and specify the path to your buildspec.yml file.
+# Create a new AWS CodePipeline and add a source stage (GitHub), a build stage (CodeBuild), and any other required stages (e.g., deploy stage).
+
+# In this buildspec.yml file:
+
+# The phases section is divided into three parts: install, build, and post_build.
+# The install phase installs Checkov and Terraform.
+# The build phase initializes Terraform, creates a plan, and exports the plan as a JSON file.
+# The post_build phase runs Checkov scans for the Terraform plan and 
+# the zipped files for frontend, admin, and backend.
+# Please note that the buildspec.yml file assumes that the Terraform files are located in the root directory of 
+# your repository. If the Terraform files are located in a different directory, you need to update the 
+# working directory in the appropriate commands.
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - echo "Installing dependencies"
+      - pip install checkov
+      - curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+      - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+      - sudo apt-get update && sudo apt-get install terraform
+
+  build:
+    commands:
+      - echo "Starting build phase"
+      - terraform init
+      - terraform plan -out=tfplan
+      - terraform show -json tfplan > tfplan.json
+
+  post_build:
+    commands:
+      - echo "Starting post-build phase"
+      - checkov --file ./terraform/tfplan.json --config-file ./checkov.yaml --output-file ./checkov.report --fail-on-error false
+      - checkov --directory ./application/frontend/frontend.zip --soft-fail false --continue-on-error true
+      - checkov --directory ./application/admin/admin.zip --soft-fail false --continue-on-error true
+      - checkov --directory ./application/frontend/backend.zip --soft-fail false --continue-on-error true
+      - checkov --directory ./application/backend/backend.zip --scan-all-files true --fail-on-error false --continue-on-failure true --severity info

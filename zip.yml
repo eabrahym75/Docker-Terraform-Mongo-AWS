@@ -1,0 +1,25 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - echo "Starting build phase"
+      - cd ./application/frontend
+      - sudo docker build -t frontend:latest .
+      - sudo docker run -d -p 3000:3000 --name frontend frontend
+      - sudo docker stop frontend
+      - sudo docker save -o frontend.zip frontend
+      - cd ./application/admin
+      - sudo docker build -t admin:latest .
+      - sudo docker run -d -p 3001:3001 --name admin admin
+      - sudo docker stop admin
+      - sudo docker save -o admin.zip admin
+      - cd ./application/backend
+      - sudo docker build -t backend:latest .
+      - sudo docker run -d -p 5002:5002 --name backend backend
+      - sudo docker stop backend
+      - sudo docker save -o backend.zip backend
+
+  post_build:
+    commands:
+      - echo "Build completed successfully"

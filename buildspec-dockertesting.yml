@@ -1,0 +1,35 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+      docker: 18
+  pre_build:
+    commands:
+      # Install Checkov for vulnerability scanning`
+      - pip3 Install checkov
+      - echo Build client and backend docker images for testing...
+      - docker build -t <dockerhub-username/>/react-test -f ./client/Dockerfile.dev ./client
+      - docker build -t <dockerhub-username/>/nodejs-test -f ./backend/Dockerfile.dev ./backend
+  build:
+    commands:
+      - echo Build started on `date`
+      # Run tests with built Docker images
+      - echo Run react tests...
+      - docker run -e CI=true <dockerhub-username/>/react-test
+      - echo Run nodejs tests...
+      - docker run -e CI=true <dockerhub-username/>/nodejs-test
+      # Build the Docker images
+      - echo Building the production Docker image...
+      - docker build -t <dockerhub-username/>/dkr-multicontainer-app-client ./client
+      - docker build -t <dockerhub-username/>/dkr-multicontainer-app-backend ./backend
+      - docker build -t <dockerhub-username/>/dkr-multicontainer-app-nginx ./nginx
+      # Log in to the Docker CLI
+      - echo "$DOCKER_PW" | docker login -u "$DOCKER_ID" --password-stdin
+  post_build:
+    commands:
+      # Take these images and push them to Docker hub
+      - echo Pushing the Docker images...
+      - docker push <dockerhub-username/>/dkr-multicontainer-app-client
+      - docker push <dockerhub-username/>/dkr-multicontainer-app-backend
+      - docker push <dockerhub-username/>/dkr-multicontainer-app-nginx
